@@ -1,5 +1,5 @@
 const KEY = 'gc_admin_token';
-const API_BASE = `https://refined-cost-viewable.ngrok-free.dev`;
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 export const getToken = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
 export const setToken = (t: string | null) => { try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch { /* storage blocked */ } };
 
@@ -23,7 +23,7 @@ async function raw(method: string, path: string, body?: unknown, q?: Q): Promise
   try {
     res = await fetch(`${API_BASE}/api${path}${qs(q)}`, {
       method,
-      headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: { 'ngrok-skip-browser-warning': 'true', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch { throw new ApiError(0, 'Cannot reach the server. Check your connection.'); }

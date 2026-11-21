@@ -14,7 +14,14 @@ export function createApp() {
   const app = express();
   app.set('trust proxy', 1); // correct client IP behind nginx / a load balancer (rate limits, audit log)
   app.use(helmet({ contentSecurityPolicy: { directives: { 'default-src': ["'self'"], 'img-src': ["'self'", 'data:'], 'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'], 'font-src': ["'self'", 'https://fonts.gstatic.com'], 'script-src': ["'self'"], 'connect-src': ["'self'"] } } }));
-  app.use(cors({ origin: (process.env.CORS_ORIGIN ?? '').split(',').filter(Boolean) }));
+  const corsOrigins = new Set((process.env.CORS_ORIGIN ?? '').split(',').map((origin) => origin.trim()).filter(Boolean));
+  app.use(cors({ origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    // Vercel assigns a unique hostname to each admin deployment. Keep these
+    // project-style admin URLs usable while still rejecting unrelated origins.
+    const isAdminPreview = /^https:\/\/admin-[a-z0-9-]+\.vercel\.app$/i.test(origin);
+    callback(null, corsOrigins.has(origin) || isAdminPreview);
+  } }));
 
   // request id + one JSON log line per request; the id is echoed in every error so support can find the exact failure
   app.use((req, res, next) => {
