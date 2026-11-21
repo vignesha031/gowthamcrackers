@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "694978206928",
+    "project_id": "gotham-crackers",
+    "storage_bucket": "gotham-crackers.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:694978206928:android:5a9bfead4ca4e8140552d5",
+        "android_client_info": {
+          "package_name": "com.gowthamcrackers.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPAI776aNoXYOl3jEp3aOfBeO6pZjyQaQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

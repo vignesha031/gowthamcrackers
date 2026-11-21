@@ -1,9 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect, useRouter, useSegments } from 'expo-router';
+import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { ApiError, api, setApiLang, setToken, setUnauthorizedHandler, uid, type ProfilePatch } from '@/api';
 import { STORAGE } from '@/config';
 import { getItem, setItem } from '@/storage';
 import type { AppConfig, Draft, Enrolment, Me, PaymentResult } from '@/types';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
+});
 
 export type Lang = 'ta' | 'en';
 
@@ -45,6 +51,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [enrolments, setEnrolments] = useState<Enrolment[]>([]);
   const [loadError, setLoadError] = useState('');
+  const pushTokenRef = useRef<string | null>(null);
 
   const reloadConfig = useCallback(async () => {
     try {
@@ -69,6 +76,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearSession = useCallback(() => {
+    if (pushTokenRef.current) api.unregisterPushToken(pushTokenRef.current).catch(() => {});
+    pushTokenRef.current = null;
     setToken(null);
     setTokenState(null);
     setMe(null);
@@ -88,6 +97,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
     return () => setUnauthorizedHandler(null);
   }, [clearSession, reloadConfig, refresh]);
+
+  useEffect(() => {
+    if (!token || Platform.OS !== 'android') return;
+    let active = true;
+    const register = async (deviceToken: Notifications.DevicePushToken) => {
+      const value = typeof deviceToken.data === 'string' ? deviceToken.data : '';
+      if (!active || !value) return;
+      try {
+        await api.registerPushToken(value);
+        if (active) pushTokenRef.current = value;
+      } catch { /* Inbox notifications remain available when push registration is offline. */ }
+    };
+    const tokenListener = Notifications.addPushTokenListener((deviceToken) => { void register(deviceToken); });
+    void (async () => {
+      try {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'General', importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250], lightColor: '#E6B84A',
+        });
+        let permission = await Notifications.getPermissionsAsync();
+        if (!permission.granted) permission = await Notifications.requestPermissionsAsync();
+        if (permission.granted) await register(await Notifications.getDevicePushTokenAsync());
+      } catch { /* Push requires a native build and a physical Android device. */ }
+    })();
+    return () => { active = false; tokenListener.remove(); };
+  }, [token]);
 
   const t = useCallback((ta: string, en: string) => (lang === 'ta' ? ta : en), [lang]);
 
@@ -182,6 +217,13 @@ export function AuthGuard() {
   const first = segments[0] ?? '';
   const inTabs = first === '(tabs)';
   const open = first === '' || first === 'index' || first === 'login' || first === 'otp' || first === 'terms' || first === 'help' || first === 'plans' || first === 'plan';
+  useEffect(() => {
+    if (!loggedIn) return;
+    const openInbox = () => router.push('/notifications');
+    const subscription = Notifications.addNotificationResponseReceivedListener(openInbox);
+    Notifications.getLastNotificationResponseAsync().then((response) => { if (response) openInbox(); }).catch(() => {});
+    return () => subscription.remove();
+  }, [loggedIn, router]);
   useEffect(() => {
     if (ready && !loggedIn && !open && !inTabs) router.replace('/');
   }, [ready, loggedIn, open, inTabs, router]);

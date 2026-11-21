@@ -1,7 +1,7 @@
 import { and, count, desc, eq, exists, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../db';
-import { enrolments, notifications, schemes, users } from '../db/schema';
+import { enrolments, notifications, pushTokens, schemes, users } from '../db/schema';
 import { forgetAuth } from '../lib/auth';
 import { HttpError, meta, paging, param, wrap } from '../lib/http';
 
@@ -77,3 +77,17 @@ export const listNotifications = wrap(async (req, res) => {
 });
 export const markAllRead = wrap(async (req, res) => { await db.update(notifications).set({ read: true }).where(eq(notifications.userId, req.auth!.sub)); res.json({ ok: true }); });
 export const markRead = wrap(async (req, res) => { await db.update(notifications).set({ read: true }).where(and(eq(notifications.id, param(req, 'id')), eq(notifications.userId, req.auth!.sub))); res.json({ ok: true }); });
+
+const pushTokenBody = z.object({ token: z.string().trim().min(20).max(4096) });
+export const registerPushToken = wrap(async (req, res) => {
+  const { token } = pushTokenBody.parse(req.body);
+  await db.insert(pushTokens).values({ userId: req.auth!.sub, token }).onConflictDoUpdate({
+    target: pushTokens.token, set: { userId: req.auth!.sub, updatedAt: new Date() },
+  });
+  res.json({ ok: true });
+});
+export const unregisterPushToken = wrap(async (req, res) => {
+  const { token } = pushTokenBody.parse(req.body);
+  await db.delete(pushTokens).where(and(eq(pushTokens.userId, req.auth!.sub), eq(pushTokens.token, token)));
+  res.json({ ok: true });
+});

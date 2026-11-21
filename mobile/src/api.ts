@@ -78,4 +78,6 @@ export const api = {
   notifications: () => call<{ items: Notice[] }>('GET', '/me/notifications?limit=50'),
   readNotification: (id: string) => call<{ ok: true }>('POST', `/me/notifications/${id}/read`),
   readAllNotifications: () => call<{ ok: true }>('POST', '/me/notifications/read-all'),
+  registerPushToken: (pushToken: string) => call<{ ok: true }>('POST', '/me/push-token', { token: pushToken }),
+  unregisterPushToken: (pushToken: string) => call<{ ok: true }>('DELETE', '/me/push-token', { token: pushToken }),
 };

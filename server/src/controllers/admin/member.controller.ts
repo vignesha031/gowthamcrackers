@@ -7,6 +7,7 @@ import { HttpError, meta, paging, param, wrap } from '../../lib/http';
 import { aggregates, bonusStatus, loadEnrolments } from '../../services/chit';
 import { logActivity } from '../../services/activity';
 import { notifyOne } from '../../services/notify';
+import { sendPushToUsers } from '../../services/push';
 import { getShop } from '../../services/settings';
 
 /** One summary row per member (aggregated in SQL, so it stays fast with thousands of members). */
@@ -86,11 +87,13 @@ export const updateMember = wrap(async (req, res) => {
     const [u] = await db.select({ mode: users.deliveryMode, store: users.pickupStore }).from(users).where(eq(users.id, e.userId));
     const store = shop.stores.find((s) => s.key === u?.store);
     const tracking = x.trackingRef ? ` (${x.trackingRef})` : '';
-    await notifyOne(db, e.userId, {
+    const notice = {
       kind: 'delivery', titleTa: 'பட்டாசு ஆர்டர் நிலை', titleEn: 'Cracker order update',
       bodyTa: `${t.ta}${b.fulfilmentStatus === 'dispatched' ? tracking : ''}${b.fulfilmentStatus === 'ready_for_pickup' && store ? ` ${store.ta}` : ''}`,
       bodyEn: `${t.en}${b.fulfilmentStatus === 'dispatched' ? tracking : ''}${b.fulfilmentStatus === 'ready_for_pickup' && store ? ` ${store.en}` : ''}`,
-    });
+    } as const;
+    await notifyOne(db, e.userId, notice);
+    await sendPushToUsers([e.userId], notice);
   }
   await logActivity(req, 'member.update', 'enrolment', id, b);
   res.json({ ok: true });

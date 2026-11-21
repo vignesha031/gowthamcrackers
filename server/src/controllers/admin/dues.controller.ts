@@ -6,6 +6,7 @@ import { daysBetween, istToday, monthLabel } from '../../lib/dates';
 import { meta, paging, wrap } from '../../lib/http';
 import { logActivity } from '../../services/activity';
 import { inr, notifyOne } from '../../services/notify';
+import { sendPushMessages } from '../../services/push';
 
 /** GET /admin/dues?tab=overdue|due|upcoming&plan=&q=&page= — who still has to pay */
 export const dues = wrap(async (req, res) => {
@@ -43,12 +44,16 @@ export const remind = wrap(async (req, res) => {
     .where(and(eq(instalments.status, 'pending'), eq(enrolments.status, 'active'), b.allOverdue ? lt(instalments.dueDate, today) : inArray(instalments.id, b.instalmentIds!)));
   const groups = new Map<string, typeof rows>();
   for (const r of rows) groups.set(r.enrolmentId, [...(groups.get(r.enrolmentId) ?? []), r]);
+  const pushDispatches: { userId: string; notice: { kind: 'dues'; titleTa: string; titleEn: string; bodyTa: string; bodyEn: string } }[] = [];
   for (const g of groups.values()) {
     const first = g.slice().sort((a, c) => a.month.localeCompare(c.month))[0], total = g.reduce((s, r) => s + r.amount, 0);
-    await notifyOne(db, first.userId, g.length === 1
+    const notice: { kind: 'dues'; titleTa: string; titleEn: string; bodyTa: string; bodyEn: string } = g.length === 1
       ? { kind: 'dues', titleTa: 'தவணை நினைவூட்டல்', titleEn: 'Instalment reminder', bodyTa: `Plan ${first.planN} · ${monthLabel(first.month, 'ta')} தவணை ₹${inr(first.amount)} செலுத்த வேண்டும். ஒவ்வொரு மாதமும் ${first.dueDay} தேதிக்குள் செலுத்தினால் போனஸ் கிடைக்கும்.`, bodyEn: `Your Plan ${first.planN} instalment of ₹${inr(first.amount)} for ${monthLabel(first.month, 'en')} is pending. Pay by the ${first.dueDay}th to keep your bonus.` }
-      : { kind: 'dues', titleTa: 'தவணை நினைவூட்டல்', titleEn: 'Instalment reminder', bodyTa: `Plan ${first.planN} - ${g.length} தவணைகள் (₹${inr(total)}) நிலுவையில் உள்ளன. தயவுசெய்து செலுத்தவும்.`, bodyEn: `Your Plan ${first.planN} has ${g.length} pending instalments (₹${inr(total)}). Please pay soon.` });
+      : { kind: 'dues', titleTa: 'தவணை நினைவூட்டல்', titleEn: 'Instalment reminder', bodyTa: `Plan ${first.planN} - ${g.length} தவணைகள் (₹${inr(total)}) நிலுவையில் உள்ளன. தயவுசெய்து செலுத்தவும்.`, bodyEn: `Your Plan ${first.planN} has ${g.length} pending instalments (₹${inr(total)}). Please pay soon.` };
+    await notifyOne(db, first.userId, notice);
+    pushDispatches.push({ userId: first.userId, notice });
   }
+  await sendPushMessages(pushDispatches);
   await logActivity(req, 'dues.remind', 'instalment', undefined, { members: groups.size, instalments: rows.length, allOverdue: !!b.allOverdue });
   res.json({ reminded: groups.size });
 });

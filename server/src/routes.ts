@@ -30,6 +30,8 @@ r.get('/me', requireUser, me.me);
 r.patch('/me', requireUser, me.updateProfile);
 r.delete('/me', requireUser, me.deleteAccount);
 r.get('/me/notifications', requireUser, me.listNotifications);
+r.post('/me/push-token', requireUser, me.registerPushToken);
+r.delete('/me/push-token', requireUser, me.unregisterPushToken);
 r.post('/me/notifications/read-all', requireUser, me.markAllRead);
 r.post('/me/notifications/:id/read', requireUser, me.markRead);
 r.get('/enrolments', requireUser, enrol.myEnrolments);

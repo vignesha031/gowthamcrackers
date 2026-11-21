@@ -5,21 +5,48 @@
     "scheme": "gowthamcrackers",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/gowtham-logo.png",
     "userInterfaceStyle": "light",
-    "plugins": ["expo-router"],
-    
-    "ios": { "supportsTablet": false, "bundleIdentifier": "com.gowthamcrackers.app" },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#E6B84A",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#7A1020",
+          "image": "./assets/gowtham-logo.png",
+          "imageWidth": 320,
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.gowthamcrackers.app"
+    },
     "android": {
       "package": "com.gowthamcrackers.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#7A1020",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/gowtham-logo.png"
       },
       "predictiveBackGestureEnabled": false
     },
-    "web": { "favicon": "./assets/favicon.png", "bundler": "metro" }
+    "web": {
+      "favicon": "./assets/gowtham-logo.png",
+      "bundler": "metro",
+      "splash": {
+        "image": "./assets/gowtham-logo.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#7A1020"
+      }
+    }
   }
 }

@@ -3,7 +3,8 @@ import { db, type Tx } from '../db';
 import { enrolments, instalments, payments, plans, schemes } from '../db/schema';
 import { addMonths, dayLabel, istToday, monthLabel, withDay } from '../lib/dates';
 import { HttpError } from '../lib/http';
-import { inr, notifyOne } from './notify';
+import { inr, notifyOne, type Notice } from './notify';
+import { sendPushMessages } from './push';
 
 type Scheme = typeof schemes.$inferSelect;
 type Plan = typeof plans.$inferSelect;
@@ -112,17 +113,20 @@ export async function joinPlan(userId: string, planId: string) {
   const recent = mine.find((e) => e.planId === planId && Date.now() - +e.createdAt < 60_000); // double-tap guard
   if (recent) return recent;
   if (mine.filter((e) => e.status === 'active').length >= MAX_ACTIVE_ENROLMENTS) throw new HttpError(400, `You can have at most ${MAX_ACTIVE_ENROLMENTS} active plans`, 'TOO_MANY_PLANS');
-  return db.transaction(async (tx) => {
+  const notice: Notice = {
+    kind: 'general', titleTa: `Plan ${row.plan.n}-ல் இணைந்தீர்கள்!`, titleEn: `Welcome to Plan ${row.plan.n}!`,
+    bodyTa: `மாதம் ₹${inr(row.plan.monthly)} வீதம் ${row.scheme.instalments} மாதங்கள் செலுத்துங்கள். ஒவ்வொரு மாதமும் ${row.scheme.dueDay} தேதிக்குள் செலுத்தினால் போனஸ் & பரிசு கிடைக்கும்.`,
+    bodyEn: `Pay ₹${inr(row.plan.monthly)} a month for ${row.scheme.instalments} months. Pay by the ${row.scheme.dueDay}th each month to keep your bonus & gift.`,
+  };
+  const created = await db.transaction(async (tx) => {
     const { plan, scheme } = row;
     const [e] = await tx.insert(enrolments).values({ userId, planId: plan.id, schemeId: scheme.id, monthly: plan.monthly, totalInstalments: scheme.instalments, bonusAmount: plan.monthly * scheme.bonusInstalments }).returning();
     await tx.insert(instalments).values(buildSchedule(scheme, plan.monthly).map((i) => ({ ...i, enrolmentId: e.id })));
-    await notifyOne(tx, userId, {
-      kind: 'general', titleTa: `Plan ${plan.n}-ல் இணைந்தீர்கள்!`, titleEn: `Welcome to Plan ${plan.n}!`,
-      bodyTa: `மாதம் ₹${inr(plan.monthly)} வீதம் ${scheme.instalments} மாதங்கள் செலுத்துங்கள். ஒவ்வொரு மாதமும் ${scheme.dueDay} தேதிக்குள் செலுத்தினால் போனஸ் & பரிசு கிடைக்கும்.`,
-      bodyEn: `Pay ₹${inr(plan.monthly)} a month for ${scheme.instalments} months. Pay by the ${scheme.dueDay}th each month to keep your bonus & gift.`,
-    });
+    await notifyOne(tx, userId, notice);
     return e;
   });
+  await sendPushMessages([{ userId, notice }]);
+  return created;
 }
 
 // ───────────── payments ─────────────
@@ -165,49 +169,59 @@ async function settleInstalment(tx: Tx, p: Payment, paidOn: string) {
   const done = open.n === 0;
   if (done && e.e.status === 'active') await tx.update(enrolments).set({ status: 'completed' }).where(eq(enrolments.id, e.e.id));
   const late = !i.onTime;
-  await notifyOne(tx, p.userId, {
+  const pushNotices: Notice[] = [];
+  const paymentNotice: Notice = {
     kind: 'payments',
     titleTa: `₹${inr(p.amount)} உறுதி செய்யப்பட்டது`, titleEn: `₹${inr(p.amount)} confirmed`,
     bodyTa: `Plan ${e.plan.n} · ${monthLabel(i.month, 'ta')} தவணை உறுதி செய்யப்பட்டது.${late ? ` ${e.scheme.dueDay} தேதிக்குப் பின் செலுத்தியதால் போனஸ் & பரிசு பாதிக்கப்படும்.` : ''}`,
     bodyEn: `Your Plan ${e.plan.n} instalment for ${monthLabel(i.month, 'en')} is confirmed.${late ? ` It was paid after the ${e.scheme.dueDay}th, so the bonus & gift are at risk.` : ''}`,
-  });
+  };
+  await notifyOne(tx, p.userId, paymentNotice);
+  pushNotices.push(paymentNotice);
   if (done) {
-    await notifyOne(tx, p.userId, {
+    const completeNotice: Notice = {
       kind: 'general', titleTa: 'அனைத்து தவணைகளும் முடிந்தன!', titleEn: 'All instalments complete!',
       bodyTa: `${dayLabel(e.scheme.chooseBy, 'ta')}-க்குள் உங்கள் பட்டாசு பட்டியலை வாட்ஸ்அப்பில் அனுப்புங்கள்.`,
       bodyEn: `Send your cracker list on WhatsApp by ${dayLabel(e.scheme.chooseBy, 'en')}.`,
-    });
+    };
+    await notifyOne(tx, p.userId, completeNotice);
+    pushNotices.push(completeNotice);
   }
-  return { instalment: i, completed: done };
+  return { instalment: i, completed: done, pushNotices };
 }
 
 export async function confirmPayment(paymentId: string, adminId: string, paidOn?: string) {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [p] = await tx.update(payments).set({ status: 'confirmed', reviewedBy: adminId, reviewedAt: new Date(), ...(paidOn && { paidOn }) })
       .where(and(eq(payments.id, paymentId), eq(payments.status, 'submitted'))).returning();
     if (!p) throw new HttpError(409, 'This payment was already reviewed');
     return { payment: p, ...(await settleInstalment(tx, p, p.paidOn)) };
   });
+  await sendPushMessages(result.pushNotices.map((notice) => ({ userId: result.payment.userId, notice })));
+  return result;
 }
 
 export async function rejectPayment(paymentId: string, adminId: string, reason: string) {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [p] = await tx.update(payments).set({ status: 'rejected', reviewedBy: adminId, reviewedAt: new Date(), rejectReason: reason })
       .where(and(eq(payments.id, paymentId), eq(payments.status, 'submitted'))).returning();
     if (!p) throw new HttpError(409, 'This payment was already reviewed');
     const [i] = await tx.update(instalments).set({ status: 'pending' }).where(eq(instalments.id, p.instalmentId)).returning();
-    await notifyOne(tx, p.userId, {
+    const notice: Notice = {
       kind: 'payments', titleTa: 'பணம் சரிபார்க்க முடியவில்லை', titleEn: 'We could not verify your payment',
       bodyTa: `${monthLabel(i.month, 'ta')} தவணை: ${reason}. சரியான ஸ்க்ரீன் ஷாட்டை வாட்ஸ்அப்பில் அனுப்பி மீண்டும் முயற்சிக்கவும்.`,
       bodyEn: `${monthLabel(i.month, 'en')} instalment: ${reason}. Please send a correct screenshot on WhatsApp and try again.`,
-    });
-    return p;
+    };
+    await notifyOne(tx, p.userId, notice);
+    return { payment: p, notice };
   });
+  await sendPushMessages([{ userId: result.payment.userId, notice: result.notice }]);
+  return result.payment;
 }
 
 /** Cash handed over at the shop: recorded and verified in one step. */
 export async function recordCash(adminId: string, enrolmentId: string, input: { instalmentNo?: number; paidOn?: string; note?: string }) {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [e] = await tx.select().from(enrolments).where(eq(enrolments.id, enrolmentId)).for('update');
     if (!e) throw new HttpError(404, 'Member not found');
     if (e.status === 'stopped') throw new HttpError(409, 'This plan was stopped');
@@ -223,6 +237,8 @@ export async function recordCash(adminId: string, enrolmentId: string, input: { 
     }).returning();
     return { payment: p, ...(await settleInstalment(tx, p, paidOn)) };
   });
+  await sendPushMessages(result.pushNotices.map((notice) => ({ userId: result.payment.userId, notice })));
+  return result;
 }
 
 /** SQL fragments used by the admin lists. */

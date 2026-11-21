@@ -6,6 +6,7 @@ import { istToday } from '../../lib/dates';
 import { wrap } from '../../lib/http';
 import { logActivity } from '../../services/activity';
 import { notifyMany } from '../../services/notify';
+import { sendPushToUsers } from '../../services/push';
 
 const audience = z.object({ audience: z.enum(['all', 'members', 'overdue', 'completed', 'plan']), planN: z.number().int().optional() }).refine((v) => v.audience !== 'plan' || v.planN, { message: 'Choose a plan', path: ['planN'] });
 
@@ -30,7 +31,9 @@ export const broadcast = wrap(async (req, res) => {
     bodyTa: z.string().trim().min(1).max(500), bodyEn: z.string().trim().min(1).max(500),
   })).parse(req.body);
   const ids = await recipients(b);
-  const sent = await notifyMany(db, ids, { kind: b.kind, titleTa: b.titleTa, titleEn: b.titleEn, bodyTa: b.bodyTa, bodyEn: b.bodyEn });
+  const notice = { kind: b.kind, titleTa: b.titleTa, titleEn: b.titleEn, bodyTa: b.bodyTa, bodyEn: b.bodyEn } as const;
+  const sent = await notifyMany(db, ids, notice);
+  await sendPushToUsers(ids, notice);
   await logActivity(req, 'notification.broadcast', 'notification', undefined, { audience: b.audience, planN: b.planN, sent, titleEn: b.titleEn });
   res.json({ sent });
 });

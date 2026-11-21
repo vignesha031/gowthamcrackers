@@ -178,6 +178,15 @@ export const notifications = pgTable('notifications', {
   createdAt: created(),
 }, (t) => [index('notif_user_idx').on(t.userId, t.createdAt)]);
 
+/** Native FCM tokens registered by a customer's Android devices. */
+export const pushTokens = pgTable('push_tokens', {
+  id: pk(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull(),
+  createdAt: created(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+}, (t) => [uniqueIndex('push_tokens_token_uq').on(t.token), index('push_tokens_user_idx').on(t.userId)]);
+
 export const activityLogs = pgTable('activity_logs', {
   id: pk(),
   adminId: uuid('admin_id').references(() => admins.id),
