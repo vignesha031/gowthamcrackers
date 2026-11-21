@@ -28,6 +28,7 @@ a { color: var(--maroon); text-decoration: none; } a:hover { text-decoration: un
 .nav a.active .count { background: var(--velvet); }
 .side-foot { margin-top: auto; padding: 10px 8px 0; border-top: 1px solid rgba(255,255,255,.1); font-size: 13px; }
 .side-foot b, .side-foot span { display: block; } .side-foot b { color: #fff; } .side-foot button { margin-top: 8px; }
+.side-foot a { display: inline-block; margin-top: 8px; color: var(--gold-l); text-decoration: none; } .side-foot a:hover { text-decoration: underline; }
 .main { min-width: 0; }
 .topbar { display: none; align-items: center; gap: 12px; padding: 10px 16px; background: var(--velvet); color: #fff; position: sticky; top: 0; z-index: 20; }
 .topbar b { font-family: var(--head); }

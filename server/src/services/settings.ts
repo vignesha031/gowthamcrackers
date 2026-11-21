@@ -14,7 +14,7 @@ export const shopSchema = z.object({
 export type Shop = z.infer<typeof shopSchema>;
 
 export const bannerSchema = z.object({
-  id: z.string().uuid(), title: z.string().max(100).default(''), image: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/), active: z.boolean().default(true),
+  id: z.string().uuid(), title: z.string().max(100).default(''), image: z.string().max(1_250_000).regex(/^data:image\/(jpeg|png|webp);base64,/), active: z.boolean().default(true),
 });
 export const bannersSchema = z.array(bannerSchema).max(8);
 export type Banner = z.infer<typeof bannerSchema>;

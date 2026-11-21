@@ -196,8 +196,8 @@ function Banners({ manage }: { manage: boolean }) {
   const save = async (next: Banner[]) => { const result = await run(() => api.put<Banner[]>('/admin/banners', next), 'Banners saved'); if (result) setItems(result); };
   const add = async (file?: File) => {
     if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 400_000) {
-      window.alert('Choose a JPG, PNG or WebP image under 400 KB.'); return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 900_000) {
+      window.alert('Choose a JPG, PNG or WebP image under 900 KB.'); return;
     }
     const image = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
     if (items.length >= 8) { window.alert('You can add up to 8 banners.'); return; }
@@ -206,7 +206,7 @@ function Banners({ manage }: { manage: boolean }) {
   };
   if (loading) return <Loading />;
   return <div className="stack">
-    <div className="info">Upload up to 8 JPG, PNG or WebP banners (each under 400 KB). Active banners rotate automatically on the customer home screen.</div>
+    <div className="info">Upload up to 8 JPG, PNG or WebP banners (each under 900 KB). Active banners rotate automatically on the customer home screen.</div>
     {items.length === 0 && <div className="card muted">No banners uploaded yet.</div>}
     <div className="grid g2">{items.map((b) => <div className="card" key={b.id}>
       <img src={b.image} alt={b.title} style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 10, background: '#f4eee3' }} />

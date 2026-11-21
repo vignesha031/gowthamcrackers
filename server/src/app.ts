@@ -31,7 +31,7 @@ export function createApp() {
     res.on('finish', () => { if (req.path !== '/health' && process.env.NODE_ENV !== 'test') console.log(JSON.stringify({ id, m: req.method, p: req.originalUrl.split('?')[0], s: res.statusCode, ms: Date.now() - t0 })); });
     next();
   });
-  app.use(express.json({ limit: '6mb' }));
+  app.use(express.json({ limit: '12mb' }));
   app.use('/api', rateLimit({ windowMs: 60_000, limit: process.env.NODE_ENV === 'test' ? 100_000 : 300, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests. Please slow down.' } }));
 
   app.get('/health', async (_req, res) => {

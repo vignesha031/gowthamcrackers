@@ -54,7 +54,7 @@ function Shell() {
             return <NavLink key={n.to} to={n.to} end={'end' in n} className={({ isActive }) => (isActive ? 'active' : '')}><span className="ico">{n.ico}</span>{n.label}{c > 0 && <span className="count">{c}</span>}</NavLink>;
           })}
         </nav>
-        <div className="side-foot"><b>{me?.name}</b><span style={{ opacity: .7 }}>{me?.role.replace('_', ' ')}</span><button className="btn sm ghost" onClick={logout}>Sign out</button></div>
+        <div className="side-foot"><b>{me?.name}</b><span style={{ opacity: .7 }}>{me?.role.replace('_', ' ')}</span><NavLink to="/change-password">Change password</NavLink><button className="btn sm ghost" onClick={logout}>Sign out</button></div>
       </aside>
       <div className="main">
         <div className="topbar"><button className="icon-btn" style={{ color: '#fff' }} onClick={() => setOpen(true)} aria-label="Open menu">☰</button><b>Gowtham Crackers · Admin</b></div>
@@ -69,6 +69,7 @@ function Shell() {
             <Route path="/members" element={<Guard perm="enrolments.view"><Members /></Guard>} />
             <Route path="/members/:id" element={<Guard perm="enrolments.view"><MemberDetail /></Guard>} />
             <Route path="/plans" element={<Guard perm="scheme.view"><Plans /></Guard>} />
+            <Route path="/change-password" element={<ChangePassword />} />
             <Route path="/notifications" element={<Guard perm="notifications.view"><Notifications /></Guard>} />
             <Route path="/reports" element={<Guard perm="reports.view"><Reports /></Guard>} />
             <Route path="/staff" element={<Guard perm="staff.view"><Staff /></Guard>} />
