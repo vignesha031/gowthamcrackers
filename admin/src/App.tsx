@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Payments from './pages/Payments';
 import Dues from './pages/Dues';
 import Customers from './pages/Customers';
+import Referrals from './pages/Referrals';
 import Members from './pages/Members';
 import MemberDetail from './pages/MemberDetail';
 import Plans from './pages/Plans';
@@ -21,6 +22,7 @@ const NAV = [
   { to: '/payments', label: 'Payments', ico: '₹', perm: 'payments.view', badge: 'waiting' },
   { to: '/dues', label: 'Dues', ico: '⏰', perm: 'dues.view', badge: 'overdue' },
   { to: '/customers', label: 'Customers', ico: '☺', perm: 'customers.view' },
+  { to: '/referrals', label: 'Referrals', ico: '↗', perm: 'customers.view' },
   { to: '/members', label: 'Members', ico: '✦', perm: 'enrolments.view' },
   { to: '/plans', label: 'Plans & Scheme', ico: '❖', perm: 'scheme.view' },
   { to: '/notifications', label: 'Notifications', ico: '✉', perm: 'notifications.view' },
@@ -63,6 +65,7 @@ function Shell() {
             <Route path="/dues" element={<Guard perm="dues.view"><Dues /></Guard>} />
             <Route path="/customers" element={<Guard perm="customers.view"><Customers /></Guard>} />
             <Route path="/customers/:id" element={<Guard perm="customers.view"><Customers /></Guard>} />
+            <Route path="/referrals" element={<Guard perm="customers.view"><Referrals /></Guard>} />
             <Route path="/members" element={<Guard perm="enrolments.view"><Members /></Guard>} />
             <Route path="/members/:id" element={<Guard perm="enrolments.view"><MemberDetail /></Guard>} />
             <Route path="/plans" element={<Guard perm="scheme.view"><Plans /></Guard>} />

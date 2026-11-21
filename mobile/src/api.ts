@@ -19,7 +19,15 @@ export const setUnauthorizedHandler = (fn: (() => void) | null) => { onUnauthori
 
 const TIMEOUT_MS = 15_000;
 
+function logApiCall(method: string, path: string, status: number | 'NETWORK', startedAt: number) {
+  if (!__DEV__) return;
+  const safePath = path.split('?')[0].replace(/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/gi, ':id');
+  const elapsed = Date.now() - startedAt;
+  console.log(`[API] ${method} ${safePath} ${status} (${elapsed}ms)`);
+}
+
 async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {
+  const startedAt = Date.now();
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   let res: Response;
@@ -31,12 +39,14 @@ async function call<T>(method: string, path: string, body?: unknown, headers: Re
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
+    logApiCall(method, path, 'NETWORK', startedAt);
     throw new ApiError(0, lang === 'ta' ? 'சர்வருடன் இணைக்க முடியவில்லை. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.' : 'Could not reach the server. Check your internet connection and try again.');
   } finally {
     clearTimeout(timer);
   }
   let data: any = null;
   try { data = await res.json(); } catch { /* empty or non-JSON body */ }
+  logApiCall(method, path, res.status, startedAt);
   if (!res.ok) {
     if (res.status === 401 && token) onUnauthorized?.();
     throw new ApiError(res.status, data?.error ?? (lang === 'ta' ? 'ஏதோ தவறு நடந்தது. மீண்டும் முயற்சிக்கவும்.' : 'Something went wrong. Please try again.'), data?.code);

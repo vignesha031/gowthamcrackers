@@ -1,4 +1,5 @@
 const KEY = 'gc_admin_token';
+const API_BASE = `https://refined-cost-viewable.ngrok-free.dev`;
 export const getToken = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
 export const setToken = (t: string | null) => { try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch { /* storage blocked */ } };
 
@@ -20,7 +21,7 @@ async function raw(method: string, path: string, body?: unknown, q?: Q): Promise
   const token = getToken();
   let res: Response;
   try {
-    res = await fetch(`/api${path}${qs(q)}`, {
+    res = await fetch(`${API_BASE}/api${path}${qs(q)}`, {
       method,
       headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,

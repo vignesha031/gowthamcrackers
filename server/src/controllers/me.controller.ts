@@ -13,9 +13,18 @@ export const userDto = (u: U) => ({
 
 /** How many friends joined a plan using this customer's code. */
 export async function referralStats(userId: string) {
-  const [r] = await db.select({ n: count() }).from(users).where(and(eq(users.referredBy, userId), exists(db.select({ x: sql`1` }).from(enrolments).where(eq(enrolments.userId, users.id)))));
-  const [s] = await db.select({ target: schemes.referralTarget, ta: schemes.referralRewardTa, en: schemes.referralRewardEn }).from(schemes).where(eq(schemes.open, true)).orderBy(desc(schemes.createdAt)).limit(1);
-  return { joined: r.n, target: s?.target ?? 5, rewardTa: s?.ta ?? '', rewardEn: s?.en ?? '' };
+  const [r, [s], items] = await Promise.all([
+    db.select({ n: count() }).from(users).where(and(eq(users.referredBy, userId), exists(db.select({ x: sql`1` }).from(enrolments).where(eq(enrolments.userId, users.id))))),
+    db.select({ target: schemes.referralTarget, ta: schemes.referralRewardTa, en: schemes.referralRewardEn }).from(schemes).where(eq(schemes.open, true)).orderBy(desc(schemes.createdAt)).limit(1),
+    db.select({
+      id: users.id, name: users.name, deleted: sql<boolean>`${users.deletedAt} is not null`,
+      joined: exists(db.select({ x: sql`1` }).from(enrolments).where(eq(enrolments.userId, users.id))),
+    }).from(users).where(eq(users.referredBy, userId)).orderBy(desc(users.createdAt)),
+  ]);
+  return {
+    joined: r[0].n, target: s?.target ?? 5, rewardTa: s?.ta ?? '', rewardEn: s?.en ?? '',
+    items: items.map(({ deleted, ...item }) => ({ ...item, name: deleted ? null : item.name })),
+  };
 }
 
 /** GET /me */

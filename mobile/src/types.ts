@@ -31,7 +31,10 @@ export interface Scheme {
 export interface Banner { id: string; title: string; image: string; active: boolean }
 export interface AppConfig { today: string; otpLength: number; shop: Shop; scheme: Scheme | null; banners: Banner[] }
 
-export interface Referral { joined: number; target: number; rewardTa: string; rewardEn: string }
+export interface Referral {
+  joined: number; target: number; rewardTa: string; rewardEn: string;
+  items?: { id: string; name: string | null; joined: boolean }[];
+}
 
 export interface Me {
   id: string; customerNo: number; mobile: string; name: string | null; lang: 'ta' | 'en';

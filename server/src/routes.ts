@@ -56,6 +56,7 @@ r.get('/admin/dues', P('dues.view'), dues.dues);
 r.post('/admin/dues/remind', P('dues.manage'), dues.remind);
 
 r.get('/admin/customers', P('customers.view'), customers.listCustomers);
+r.get('/admin/referrals', P('customers.view'), customers.listReferrals);
 r.get('/admin/customers/:id', P('customers.view'), customers.customerDetail);
 r.patch('/admin/customers/:id', P('customers.manage'), customers.updateCustomer);
 

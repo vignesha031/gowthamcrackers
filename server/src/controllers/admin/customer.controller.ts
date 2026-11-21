@@ -1,7 +1,7 @@
 import { and, count, desc, eq, exists, ilike, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../../db';
-import { enrolments, instalments, payments, plans, users } from '../../db/schema';
+import { enrolments, instalments, payments, plans, schemes, users } from '../../db/schema';
 import { forgetAuth } from '../../lib/auth';
 import { HttpError, meta, paging, param, wrap } from '../../lib/http';
 import { loadEnrolments } from '../../services/chit';
@@ -44,6 +44,31 @@ export const customerDetail = wrap(async (req, res) => {
     referrals: { joined: referred.filter((r) => r.joined).length, items: referred },
     members, payments: pays.map(({ p, ...r }) => ({ id: p.id, ref: p.ref, amount: p.amount, method: p.method, status: p.status, paidOn: p.paidOn, createdAt: p.createdAt, ...r })),
   });
+});
+
+/** GET /admin/referrals?q=&page= — referral relationships and qualification status */
+export const listReferrals = wrap(async (req, res) => {
+  const p = paging(req.query);
+  const q = String(req.query.q ?? '').trim();
+  const search = q ? sql`and (
+    invitee.name ilike ${`%${q}%`} or invitee.mobile ilike ${`%${q}%`} or
+    referrer.name ilike ${`%${q}%`} or referrer.mobile ilike ${`%${q}%`} or
+    referrer.referral_code ilike ${`%${q}%`}
+  )` : sql``;
+  const fromWhere = sql`from users invitee
+    join users referrer on referrer.id = invitee.referred_by
+    where invitee.referred_by is not null ${search}`;
+  const [countResult, results, [scheme]] = await Promise.all([
+    db.execute(sql`select count(*)::int as total ${fromWhere}`),
+    db.execute(sql`select
+      invitee.id as "inviteeId", invitee.name as "inviteeName", invitee.mobile as "inviteeMobile", invitee.created_at as "referredAt",
+      referrer.id as "referrerId", referrer.name as "referrerName", referrer.mobile as "referrerMobile", referrer.referral_code as "referralCode",
+      exists(select 1 from enrolments e where e.user_id = invitee.id) as joined
+      ${fromWhere} order by invitee.created_at desc limit ${p.limit} offset ${p.offset}`),
+    db.select({ target: schemes.referralTarget, rewardTa: schemes.referralRewardTa, rewardEn: schemes.referralRewardEn }).from(schemes).where(eq(schemes.open, true)).orderBy(desc(schemes.createdAt)).limit(1),
+  ]);
+  const [{ total }] = countResult.rows as { total: number }[];
+  res.json({ items: results.rows, pagination: meta(p, total), target: scheme?.target ?? 5, rewardTa: scheme?.rewardTa ?? '', rewardEn: scheme?.rewardEn ?? '' });
 });
 
 /** PATCH /admin/customers/:id — fix a name / address the customer typed wrong, or block someone */

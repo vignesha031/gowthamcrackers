@@ -11,7 +11,7 @@
  *  - real phone (same Wi-Fi)  http://<your-laptop-LAN-IP>:4000
  *  - production               https://api.your-domain.in
  */
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/+$/, '');
+export const API_URL = (process.env.EXPO_PUBLIC_API_URL ).replace(/\/+$/, '');
 
 export const OTP_RESEND_SECONDS = 30;
 

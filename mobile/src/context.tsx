@@ -180,10 +180,11 @@ export function AuthGuard() {
   const segments = useSegments() as string[];
   const router = useRouter();
   const first = segments[0] ?? '';
+  const inTabs = first === '(tabs)';
   const open = first === '' || first === 'index' || first === 'login' || first === 'otp' || first === 'terms' || first === 'help' || first === 'plans' || first === 'plan';
   useEffect(() => {
-    if (ready && !loggedIn && !open) router.replace('/');
-  }, [ready, loggedIn, open, router]);
+    if (ready && !loggedIn && !open && !inTabs) router.replace('/');
+  }, [ready, loggedIn, open, inTabs, router]);
   return null;
 }
 

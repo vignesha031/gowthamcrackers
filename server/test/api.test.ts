@@ -215,6 +215,14 @@ describe('Gowtham Crackers API', () => {
       assert.equal((await patch('/api/me', { referralCode: 'GC9999' }, a)).status, 400, 'unknown code');
       const me = (await get('/api/me', a)).body;
       assert.equal(me.referral.joined, 4); assert.equal(me.referral.target, 5);
+      assert.equal(me.referral.items.length, 5);
+      assert.equal(me.referral.items.filter((item: any) => item.joined).length, 4);
+      assert.ok(me.referral.items.some((item: any) => item.name === 'Friend 4' && !item.joined));
+      const adminRows = await get('/api/admin/referrals?q=Referrer', admin);
+      assert.equal(adminRows.status, 200);
+      assert.equal(adminRows.body.pagination.total, 5);
+      assert.equal(adminRows.body.items.filter((item: any) => item.joined).length, 4);
+      assert.ok(adminRows.body.items.every((item: any) => item.referrerName === 'Referrer'));
     });
   });
 
